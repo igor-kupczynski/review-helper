@@ -64,7 +64,7 @@ Looking at the output it seems you should start with `TaskManager.java` and
 ## TODO
 
 - [X] Get rid of JustHTTP
-- [ ] Get rid of Commander
+- [X] Get rid of Commander
 - [ ] Unit-tests
 - [ ] Nice makefile
 - [ ] Homebrew formula
