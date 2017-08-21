@@ -1,5 +1,4 @@
 import Foundation
-import Just
 
 /// JSON deserialization error
 enum SerializationError: Error {
@@ -59,6 +58,8 @@ extension PullRequestFile {
 /// A facade to interact with github repository
 class GithubRepoHandle {
     
+    private let session: URLSession = URLSession.shared
+
     let apiToken: String
     let owner: String
     let repo: String
@@ -75,14 +76,32 @@ class GithubRepoHandle {
     
     /// List files in a Pull Request ordering by the most number of changes first
     func listFilesInPr(_ pr: Int) -> [PullRequestFile] {
-        let result = Just.get(
-            "\(baseUrl())/pulls/\(pr)/files",
-            params: ["access_token": apiToken, "per_page": 300]
-        )
         
-        var prs: [PullRequestFile] = (try? PullRequestFile.fromJsonArray(json: result.json ?? [])) ?? []
+        let url = URL(string: "\(baseUrl())/pulls/\(pr)/files?access_token=\(apiToken)&per_page=300")
         
-        prs.sort(by: mostChangesFirst)
+        var prs: [PullRequestFile] = []
+        
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        let task = session.dataTask(with: url!) { responseData, _, _ in
+            guard let data = responseData else {
+                semaphore.signal()
+                return
+            }
+            
+            guard let responseJson = try? JSONSerialization.jsonObject(with: data) else {
+                semaphore.signal()
+                return
+            }
+            
+            prs = (try? PullRequestFile.fromJsonArray(json: responseJson)) ?? []
+            prs.sort(by: self.mostChangesFirst)
+            semaphore.signal()
+        }
+        task.resume()
+        
+        // TODO: do not wait indefintely
+        let _ = semaphore.wait(timeout: .distantFuture)
         
         return prs
     }

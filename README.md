@@ -59,3 +59,14 @@ core/src/main/java/org/elasticsearch/cluster/service/InternalClusterService.java
 
 Looking at the output it seems you should start with `TaskManager.java` and
 `TransportCancelTasksAction.java`!
+
+
+## TODO
+
+- [X] Get rid of JustHTTP
+- [ ] Get rid of Commander
+- [ ] Unit-tests
+- [ ] Nice makefile
+- [ ] Homebrew formula
+- [ ] Better readme
+- [ ] Github login command
