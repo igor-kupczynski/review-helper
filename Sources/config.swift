@@ -1,39 +1,48 @@
 import Foundation
 
-/// review helper configuration
+enum ConfigError : Error {
+    case cantReadConfigFile(where: String)
+    case notAJson(message: String)
+    case invalidFormat(expected: String)
+}
+
 struct Config {
     let apiToken: String
 }
 
-// deserialization from json
-// TODO: error handling instead of `nil`s
+
+// Json deserialization
 extension Config {
-    private init?(json: Any) {
+
+    static let configFileLocation = "~/.review-helper.json"
+
+    private init(json: Any?) throws {
         guard let configJson = json as? [String: Any] else {
-            return nil
+            throw ConfigError.invalidFormat(expected: "top level object")
         }
         
         guard let apiToken = configJson["token"] as? String else {
-            return nil
+            throw ConfigError.invalidFormat(expected: "token property representing Github API token")
         }
         
         self.apiToken = apiToken
     }
     
     /// Load the config from "~/.review-helper.json"
-    static func load() -> Config? {
-        
+    static func load() throws -> Config {
         let home = URL(fileURLWithPath: NSHomeDirectory())
-        
-        guard let data = try? Data(
-            contentsOf: URL(string: ".review-helper.json", relativeTo: home)!) else {
-                return nil
+        let configFile = URL(string: ".review-helper.json", relativeTo: home)!
+
+        guard let data = try? Data(contentsOf: configFile) else {
+            throw ConfigError.cantReadConfigFile(where: configFileLocation)
         }
-        
-        guard let configJson = try? JSONSerialization.jsonObject(with: data) else {
-            return nil
+
+        var configJson: Any?
+        do {
+            configJson = try JSONSerialization.jsonObject(with: data)
+        } catch let error as NSError {
+            throw ConfigError.notAJson(message: error.localizedDescription)
         }
-        
-        return Config(json: configJson)
+        return try Config(json: configJson)
     }
 }

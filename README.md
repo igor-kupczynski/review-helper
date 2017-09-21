@@ -8,7 +8,7 @@ It returns a list of files modified within a PR sorted by the number of changes.
 ## Install
 
 1. `TODO`
-2. Create a file `~/.review-helper.json.in`
+2. Create a file `~/.review-helper.json`
 3. Put the following content there
   ```
 {"token": "your-github-access-token-with-repo-permissions"}
