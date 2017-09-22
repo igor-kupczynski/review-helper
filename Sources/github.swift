@@ -1,15 +1,9 @@
 import Foundation
 
-/// JSON deserialization error
-enum SerializationError: Error {
-    case missing(String)
-    case invalidRoot(Any)
-}
-
 /// A struct representing github pull request
 ///
 /// Note: only fields interesting for this application are represented
-struct PullRequestFile {
+struct PullRequestFile : Decodable {
     
     /// Filename and its path in the repo
     let filename: String
@@ -23,37 +17,11 @@ struct PullRequestFile {
     }
 }
 
-// Deserialization from json
-extension PullRequestFile {
-    
-    private init(json: Any) throws {
-        guard let prJson = json as? [String: Any] else {
-            throw SerializationError.invalidRoot(json)
-        }
-        
-        guard let filename = prJson["filename"] as? String else {
-            throw SerializationError.missing("filename")
-        }
-        
-        guard let changes = prJson["changes"] as? Int else {
-            throw SerializationError.missing("changes")
-        }
-        
-        self.filename = filename
-        self.changes = changes
-    }
-    
-    static fileprivate func fromJsonArray(json: Any) throws -> [PullRequestFile] {
-        guard let prs = json as? [Any] else {
-            throw SerializationError.invalidRoot(json)
-        }
-        let result = try prs.map { pr in
-            try PullRequestFile(json: pr)
-            
-        }
-        return result
-    }
+/// Error response from the Github API
+enum ApiError : Error {
+    case cantFetch(url: URL)
 }
+
 
 /// A facade to interact with github repository
 class GithubRepoHandle {
@@ -75,35 +43,42 @@ class GithubRepoHandle {
     }
     
     /// List files in a Pull Request ordering by the most number of changes first
-    func listFilesInPr(_ pr: Int) -> [PullRequestFile] {
+    func listFilesInPr(_ pr: Int) throws -> [PullRequestFile] {
         
-        let url = URL(string: "\(baseUrl())/pulls/\(pr)/files?access_token=\(apiToken)&per_page=300")
-        
+        let url = URL(string: "\(baseUrl())/pulls/\(pr)/files?access_token=\(apiToken)&per_page=300")!
+
+        let response = try fetch(url: url)
+
         var prs: [PullRequestFile] = []
-        
+        prs = try JSONDecoder().decode([PullRequestFile].self, from: response)
+        prs.sort(by: self.mostChangesFirst)
+
+        return prs
+    }
+
+    private func fetch(url: URL) throws -> Data {
+        var response: Data? = nil
+
         let semaphore = DispatchSemaphore(value: 0)
-        
-        let task = session.dataTask(with: url!) { responseData, _, _ in
+
+        let task = session.dataTask(with: url) { responseData, _, _ in
             guard let data = responseData else {
                 semaphore.signal()
                 return
             }
-            
-            guard let responseJson = try? JSONSerialization.jsonObject(with: data) else {
-                semaphore.signal()
-                return
-            }
-            
-            prs = (try? PullRequestFile.fromJsonArray(json: responseJson)) ?? []
-            prs.sort(by: self.mostChangesFirst)
+            response = data
             semaphore.signal()
         }
         task.resume()
-        
+
         // TODO: do not wait indefintely
         let _ = semaphore.wait(timeout: .distantFuture)
-        
-        return prs
+
+        guard let r = response else {
+            throw ApiError.cantFetch(url: url)
+        }
+
+        return r
     }
     
     private let mostChangesFirst: (PullRequestFile, PullRequestFile) -> Bool = { $0.changes > $1.changes}
