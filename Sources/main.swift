@@ -34,13 +34,7 @@ func main() -> () {
         switch configError {
         case .cantReadConfigFile(let message):
             print("Can't read the config file: \(message).", to:&standardError)
-        case .invalidFormat(let expected):
-            print("Invalid config file format, expected: \(expected).", to:&standardError)
-        case .notAJson(let message):
-            print("Config file is not a JSON: \(message).", to:&standardError)
         }
-        print("Valid config file at \(Config.configFileLocation) expected, see the README.md for details on its format",
-            to:&standardError)
     } catch {
         print("Unexpected error \(error)", to:&standardError)
     }

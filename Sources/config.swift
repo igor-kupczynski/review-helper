@@ -2,47 +2,30 @@ import Foundation
 
 enum ConfigError : Error {
     case cantReadConfigFile(where: String)
-    case notAJson(message: String)
-    case invalidFormat(expected: String)
 }
 
-struct Config {
+struct Config : Codable {
     let apiToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case apiToken = "token"
+    }
 }
 
 
 // Json deserialization
 extension Config {
 
-    static let configFileLocation = "~/.review-helper.json"
-
-    private init(json: Any?) throws {
-        guard let configJson = json as? [String: Any] else {
-            throw ConfigError.invalidFormat(expected: "top level object")
-        }
-        
-        guard let apiToken = configJson["token"] as? String else {
-            throw ConfigError.invalidFormat(expected: "token property representing Github API token")
-        }
-        
-        self.apiToken = apiToken
-    }
+    static let configFileName = ".review-helper.json"
+    static let configFile = URL(string: ".review-helper.json", relativeTo: URL(fileURLWithPath: NSHomeDirectory()))!
     
     /// Load the config from "~/.review-helper.json"
     static func load() throws -> Config {
-        let home = URL(fileURLWithPath: NSHomeDirectory())
-        let configFile = URL(string: ".review-helper.json", relativeTo: home)!
-
         guard let data = try? Data(contentsOf: configFile) else {
-            throw ConfigError.cantReadConfigFile(where: configFileLocation)
+            throw ConfigError.cantReadConfigFile(where: configFile.absoluteString)
         }
 
-        var configJson: Any?
-        do {
-            configJson = try JSONSerialization.jsonObject(with: data)
-        } catch let error as NSError {
-            throw ConfigError.notAJson(message: error.localizedDescription)
-        }
-        return try Config(json: configJson)
+        let config = try JSONDecoder().decode(Config.self, from: data)
+        return config
     }
 }
